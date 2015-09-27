@@ -4,9 +4,21 @@ var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
+var mongoose = require('mongoose');
+var passport = require('passport');
+var expressSession = require('express-session');
+var flash = require('connect-flash');
 
+var config = require('./config');
 var routes = require('./routes/index');
 var users = require('./routes/users');
+var orders = require('./routes/orders');
+
+var passportConfig = require('./auth/passport-config');
+var restrict = require('./auth/restrict');
+passportConfig();
+
+mongoose.connect(config.mongoURI);
 
 var app = express();
 
@@ -22,11 +34,25 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.use(expressSession(
+  {
+    secret: "i'm hungry",
+    saveUnitialized: false,
+    resave: false
+  }
+))
+
+app.use(flash());
+app.use(passport.initialize());
+app.use(passport.session());
+
 app.use('/', routes);
 app.use('/users', users);
+app.use(restrict);
+app.use('/orders', orders);
 
 // catch 404 and forward to error handler
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   var err = new Error('Not Found');
   err.status = 404;
   next(err);
@@ -37,7 +63,7 @@ app.use(function(req, res, next) {
 // development error handler
 // will print stacktrace
 if (app.get('env') === 'development') {
-  app.use(function(err, req, res, next) {
+  app.use(function (err, req, res, next) {
     res.status(err.status || 500);
     res.render('error', {
       message: err.message,
